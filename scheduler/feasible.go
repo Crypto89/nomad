@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/nomad/nomad/structs"
 )
 
@@ -171,11 +170,13 @@ func NewProposedAllocConstraintIterator(ctx Context, source FeasibleIterator) *P
 func (iter *ProposedAllocConstraintIterator) SetTaskGroup(tg *structs.TaskGroup) {
 	iter.tg = tg
 	iter.tgDistinctHosts = iter.hasDistinctHostsConstraint(tg.Constraints)
+	iter.tgBalance = iter.hasBalanceConstraint(tg.Constraints)
 }
 
 func (iter *ProposedAllocConstraintIterator) SetJob(job *structs.Job) {
 	iter.job = job
 	iter.jobDistinctHosts = iter.hasDistinctHostsConstraint(job.Constraints)
+	iter.jobBalance = iter.hasBalanceConstraint(job.Constraints)
 }
 
 func (iter *ProposedAllocConstraintIterator) hasDistinctHostsConstraint(constraints []*structs.Constraint) bool {
@@ -184,6 +185,16 @@ func (iter *ProposedAllocConstraintIterator) hasDistinctHostsConstraint(constrai
 			return true
 		}
 	}
+	return false
+}
+
+func (iter *ProposedAllocConstraintIterator) hasBalanceConstraint(constraints []*structs.Constraint) bool {
+	for _, con := range constraints {
+		if con.Operand == structs.ConstraintBalance {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -199,6 +210,11 @@ func (iter *ProposedAllocConstraintIterator) Next() *structs.Node {
 
 		if !iter.satisfiesDistinctHosts(option) {
 			iter.ctx.Metrics().FilterNode(option, structs.ConstraintDistinctHosts)
+			continue
+		}
+
+		if !iter.satisfiesBalance(option) {
+			iter.ctx.Metrics().FilterNode(option, structs.ConstraintBalance)
 			continue
 		}
 
@@ -233,6 +249,24 @@ func (iter *ProposedAllocConstraintIterator) satisfiesDistinctHosts(option *stru
 			return false
 		}
 	}
+
+	return true
+}
+
+func (iter *ProposedAllocConstraintIterator) satisfiesBalance(option *structs.Node) bool {
+	// Check if there is no constraint set.
+	if !(iter.jobBalance || iter.tgBalance) {
+		return true
+	}
+
+	proposed, err := iter.ctx.ProposedAllocs(option.ID)
+	if err != nil {
+		iter.ctx.Logger().Printf(
+			"[ERR] scheduler.dynamic-constraint: failed to get proposed allocations: %v", err)
+		return false
+	}
+
+	jobDC := iter.job.Datacenters
 
 	return true
 }

@@ -22,8 +22,6 @@ import (
 
 	"github.com/gorhill/cronexpr"
 	"github.com/hashicorp/consul/api"
-	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/nomad/helper/args"
 	"github.com/mitchellh/copystructure"
 	"github.com/ugorji/go/codec"
@@ -2864,6 +2862,7 @@ func (ta *TaskArtifact) Validate() error {
 }
 
 const (
+	ConstraintBalance       = "balance"
 	ConstraintDistinctHosts = "distinct_hosts"
 	ConstraintRegex         = "regexp"
 	ConstraintVersion       = "version"

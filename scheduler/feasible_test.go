@@ -472,6 +472,36 @@ func TestProposedAllocConstraint_JobDistinctHosts(t *testing.T) {
 	}
 }
 
+func TestPropsedAllocConstraint_JobBalance t *testing.T) {
+	_, ctx := testContext(t)
+	nodes := []*structs.Node{
+		mock.Node(),
+		mock.Node(),
+		mock.Node(),
+		mock.Node(),
+	}
+	static := NewStaticIterator(ctx, nodes)
+
+	// Create a job with balance constraint
+	tg := &structs.TaskGroup{Name: "bar"}
+
+	job := &structs.Job{
+		ID: "foo",
+		Constraints: []*structs.Constraint{{Operand: structs.ConstraintBalance}},
+		TaskGroups: []*structs.TaskGroup{tg},
+	}
+
+	propsed := NewProposedAllocConstraintIterator(ctx, static)
+	propsed.SetTaskGroup(tg)
+	propsed.SetJob(job)
+
+	out := collectFeasible(propsed)
+
+	for _, node := range out {
+		t.Infof("node: %v", node)
+	}
+}
+
 func TestProposedAllocConstraint_JobDistinctHosts_Infeasible(t *testing.T) {
 	_, ctx := testContext(t)
 	nodes := []*structs.Node{
